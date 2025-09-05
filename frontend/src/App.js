@@ -100,6 +100,7 @@ const Login = () => {
           api_key: response.data.api_key
         };
         login(userData, response.data.token);
+        navigate('/'); // Force redirect to dashboard
       } else {
         // Registration - show success popup
         setSuccessMessage(response.data.message || 'Registration successful! You can now login.');
