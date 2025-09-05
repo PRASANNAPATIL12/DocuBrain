@@ -33,7 +33,7 @@ embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Configure Gemini
 genai.configure(api_key="AIzaSyA3dRlGjSFwwKjCnq1vgaHfrMx36mJE22c")
-gemini_model = genai.GenerativeModel('gemini-pro')
+gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # Create the main app
 app = FastAPI()
