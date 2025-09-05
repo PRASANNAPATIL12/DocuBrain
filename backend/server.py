@@ -78,11 +78,8 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 def create_token(user_id: str) -> str:
-    payload = {
-        'user_id': user_id,
-        'exp': datetime.utcnow() + timedelta(days=30)
-    }
-    return jwt.encode(payload, "simple_secret", algorithm="HS256")
+    # Super simple token - just prefix + user_id
+    return f"simple_token_{user_id}"
 
 def verify_token(token: str) -> str:
     # Super simple token verification - just check if it starts with our prefix
