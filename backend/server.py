@@ -203,7 +203,7 @@ async def upload_document(
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user)
 ):
-    if not file.filename.lower().endsWith('.pdf'):
+    if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
     # Read file content
