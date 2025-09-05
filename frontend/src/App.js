@@ -2,7 +2,6 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import axios from "axios";
-import { mockData } from "./mockData";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -64,20 +63,25 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    // Mock authentication for demo
-    setTimeout(() => {
-      if (username && password) {
-        const userData = {
-          user_id: "mock_user_123",
-          username: username,
-          api_key: "sk-docubrain-" + Math.random().toString(36).substr(2, 20)
-        };
-        login(userData, "mock_token_" + Math.random().toString(36));
-      } else {
-        setError('Please enter username and password');
-      }
+    try {
+      const endpoint = isLogin ? '/auth/login' : '/auth/register';
+      const response = await axios.post(`${API}${endpoint}`, {
+        username,
+        password
+      });
+
+      const userData = {
+        user_id: response.data.user_id,
+        username: username,
+        api_key: response.data.api_key
+      };
+
+      login(userData, response.data.token);
+    } catch (error) {
+      setError(error.response?.data?.detail || 'Authentication failed');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -145,12 +149,32 @@ const Login = () => {
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
-  const [documents, setDocuments] = useState(mockData.documents);
+  const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState([]);
   const [querying, setQuerying] = useState(false);
+  const [textTitle, setTextTitle] = useState('');
+  const [textContent, setTextContent] = useState('');
+  const [addingText, setAddingText] = useState(false);
+  const [showTextForm, setShowTextForm] = useState(false);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API}/documents`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDocuments(response.data);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -162,21 +186,56 @@ const Dashboard = () => {
     }
 
     setUploading(true);
-    
-    // Mock file upload
-    setTimeout(() => {
-      const newDoc = {
-        id: Date.now(),
-        filename: file.name,
-        upload_time: new Date().toISOString(),
-        chunk_count: Math.floor(Math.random() * 50) + 10,
-        status: 'completed'
-      };
-      setDocuments([...documents, newDoc]);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/documents/upload`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
       alert('Document uploaded and processed successfully!');
+      fetchDocuments();
+    } catch (error) {
+      alert('Upload failed: ' + (error.response?.data?.detail || 'Unknown error'));
+    } finally {
       setUploading(false);
       e.target.value = '';
-    }, 2000);
+    }
+  };
+
+  const handleTextSubmit = async (e) => {
+    e.preventDefault();
+    if (!textTitle.trim() || !textContent.trim()) return;
+
+    setAddingText(true);
+    const formData = new FormData();
+    formData.append('title', textTitle);
+    formData.append('content', textContent);
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/documents/text`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      alert('Text document processed successfully!');
+      setTextTitle('');
+      setTextContent('');
+      setShowTextForm(false);
+      fetchDocuments();
+    } catch (error) {
+      alert('Failed to process text: ' + (error.response?.data?.detail || 'Unknown error'));
+    } finally {
+      setAddingText(false);
+    }
   };
 
   const handleQuery = async (e) => {
@@ -184,20 +243,22 @@ const Dashboard = () => {
     if (!query.trim()) return;
 
     setQuerying(true);
-    
-    // Mock query processing
-    setTimeout(() => {
-      const mockAnswer = mockData.sampleAnswers[Math.floor(Math.random() * mockData.sampleAnswers.length)];
-      const mockSources = documents.slice(0, 2).map((doc, index) => ({
-        filename: doc.filename,
-        chunk_index: Math.floor(Math.random() * doc.chunk_count),
-        relevance_score: 0.8 + (Math.random() * 0.2)
-      }));
-      
-      setAnswer(mockAnswer);
-      setSources(mockSources);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API}/query`, {
+        question: query
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setAnswer(response.data.answer);
+      setSources(response.data.sources);
+    } catch (error) {
+      setAnswer('Error: ' + (error.response?.data?.detail || 'Query failed'));
+      setSources([]);
+    } finally {
       setQuerying(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -246,6 +307,44 @@ const Dashboard = () => {
               />
               {uploading && (
                 <p className="text-blue-600 text-sm mt-2">Processing document...</p>
+              )}
+            </div>
+
+            {/* Add Text Section */}
+            <div className="mb-6">
+              <button
+                onClick={() => setShowTextForm(!showTextForm)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-200"
+              >
+                {showTextForm ? 'Cancel' : 'Add Text Document'}
+              </button>
+              
+              {showTextForm && (
+                <form onSubmit={handleTextSubmit} className="mt-4 space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Document title"
+                    value={textTitle}
+                    onChange={(e) => setTextTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    required
+                  />
+                  <textarea
+                    placeholder="Enter your text content here..."
+                    value={textContent}
+                    onChange={(e) => setTextContent(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                    rows="6"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={addingText}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 transition duration-200"
+                  >
+                    {addingText ? 'Processing...' : 'Add Text Document'}
+                  </button>
+                </form>
               )}
             </div>
 
