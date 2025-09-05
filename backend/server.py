@@ -266,9 +266,15 @@ async def add_text_document(
 @api_router.get("/documents")
 async def get_documents(user_id: str = Depends(get_current_user)):
     documents = await db.documents.find(
-        {"user_id": user_id}, 
-        {"content": 0, "chunks": 0, "embeddings": 0}
+        {"user_id": user_id}
     ).to_list(100)
+    
+    # Remove heavy fields for response
+    for doc in documents:
+        doc.pop("content", None)
+        doc.pop("chunks", None) 
+        doc.pop("embeddings", None)
+        doc.pop("_id", None)
     
     return documents
 
