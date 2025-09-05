@@ -73,7 +73,7 @@ class QueryResponse(BaseModel):
     answer: str
     sources: List[dict]
 
-# Utility functions
+# Utility functions - SIMPLIFIED
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -82,15 +82,13 @@ def create_token(user_id: str) -> str:
         'user_id': user_id,
         'exp': datetime.utcnow() + timedelta(days=30)
     }
-    return jwt.encode(payload, "docubrain_secret", algorithm="HS256")
+    return jwt.encode(payload, "simple_secret", algorithm="HS256")
 
 def verify_token(token: str) -> str:
     try:
-        payload = jwt.decode(token, "docubrain_secret", algorithms=["HS256"])
+        payload = jwt.decode(token, "simple_secret", algorithms=["HS256"])
         return payload['user_id']
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
+    except:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
@@ -148,7 +146,7 @@ def find_relevant_chunks(query: str, document_chunks: List[str], document_embedd
     
     return results
 
-# Authentication endpoints
+# SIMPLIFIED Authentication endpoints
 @api_router.post("/auth/register")
 async def register(user_data: UserCreate):
     # Check if user exists
@@ -156,15 +154,14 @@ async def register(user_data: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    # Create new user
+    # Create new user - SIMPLE STORAGE
     user_id = str(uuid.uuid4())
     api_key = f"sk-docubrain-{uuid.uuid4().hex[:20]}"
-    hashed_password = hash_password(user_data.password)
     
     user = {
         "user_id": user_id,
         "username": user_data.username,
-        "password": hashed_password,
+        "password": user_data.password,  # Store plain password for simplicity
         "api_key": api_key,
         "created_at": datetime.utcnow()
     }
@@ -173,6 +170,8 @@ async def register(user_data: UserCreate):
     token = create_token(user_id)
     
     return {
+        "success": True,
+        "message": "Registration successful!",
         "user_id": user_id,
         "token": token,
         "api_key": api_key
@@ -183,15 +182,17 @@ async def login(user_data: UserLogin):
     # Find user
     user = await db.users.find_one({"username": user_data.username})
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     
-    # Verify password
-    if hash_password(user_data.password) != user["password"]:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    # Simple password check
+    if user_data.password != user["password"]:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     
     token = create_token(user["user_id"])
     
     return {
+        "success": True,
+        "message": "Login successful!",
         "user_id": user["user_id"],
         "token": token,
         "api_key": user["api_key"]

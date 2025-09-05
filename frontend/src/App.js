@@ -49,6 +49,25 @@ const useAuth = () => {
   return context;
 };
 
+// Simple Success Popup
+const SuccessPopup = ({ message, onClose }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+      <div className="text-center">
+        <div className="text-green-500 text-5xl mb-4">✓</div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Success!</h3>
+        <p className="text-gray-600 mb-4">{message}</p>
+        <button
+          onClick={onClose}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // Components
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -56,6 +75,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -70,13 +91,22 @@ const Login = () => {
         password
       });
 
-      const userData = {
-        user_id: response.data.user_id,
-        username: username,
-        api_key: response.data.api_key
-      };
-
-      login(userData, response.data.token);
+      if (isLogin) {
+        // Login - proceed to dashboard
+        const userData = {
+          user_id: response.data.user_id,
+          username: username,
+          api_key: response.data.api_key
+        };
+        login(userData, response.data.token);
+      } else {
+        // Registration - show success popup
+        setSuccessMessage(response.data.message || 'Registration successful! You can now login.');
+        setShowSuccess(true);
+        setUsername('');
+        setPassword('');
+        setIsLogin(true); // Switch to login mode
+      }
     } catch (error) {
       setError(error.response?.data?.detail || 'Authentication failed');
     } finally {
@@ -85,65 +115,77 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">DocuBrain</h1>
-          <p className="text-gray-600">Turn your documents into a private knowledge base</p>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">DocuBrain</h1>
+            <p className="text-gray-600">Turn your documents into a private knowledge base</p>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="text-red-600 text-sm text-center">
-              {error}
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition duration-200"
-          >
-            {loading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 hover:text-blue-800 text-sm"
-          >
-            {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
-          </button>
+            {error && (
+              <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition duration-200"
+            >
+              {loading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+              }}
+              className="text-blue-600 hover:text-blue-800 text-sm"
+            >
+              {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {showSuccess && (
+        <SuccessPopup
+          message={successMessage}
+          onClose={() => setShowSuccess(false)}
+        />
+      )}
+    </>
   );
 };
 
