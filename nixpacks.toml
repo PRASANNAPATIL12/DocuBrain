@@ -3,7 +3,7 @@ NODE_VERSION = "18"
 PYTHON_VERSION = "3.11"
 
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "python311", "pip", "yarn"]
+nixPkgs = ["nodejs-18_x", "python311", "yarn"]
 
 [phases.install]
 cmds = [
